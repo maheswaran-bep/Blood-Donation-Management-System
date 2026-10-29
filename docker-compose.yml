@@ -1,0 +1,85 @@
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: blood-donation-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: blood_donation_db
+      MYSQL_USER: bloodapp
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+    volumes:
+      - blood_donation_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    networks:
+      - blood-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: blood-donation-backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: blood_donation_db
+      DB_USER: bloodapp
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env}
+      ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      CORS_ORIGINS: http://localhost:8085,http://127.0.0.1:8085
+    expose:
+      - "8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - blood-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    container_name: blood-donation-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8085}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - blood-network
+
+volumes:
+  blood_donation_data:
+
+networks:
+  blood-network:
+    driver: bridge
