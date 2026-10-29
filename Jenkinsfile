@@ -16,7 +16,7 @@ pipeline {
         MYSQL_ROOT_PASSWORD = credentials('blood-mysql-root-password')
         JWT_SECRET_KEY = credentials('blood-jwt-secret')
 
-        FRONTEND_PORT = '8085'
+        FRONTEND_PORT = '8095'
     }
 
     stages {
@@ -123,7 +123,7 @@ pipeline {
 
                     for i in $(seq 1 30); do
                         if curl -fsS \
-                          http://host.docker.internal:8085/ \
+                          http://host.docker.internal:8095/ \
                           -o /dev/null; then
                             echo "Frontend HTTP check passed"
                             break
