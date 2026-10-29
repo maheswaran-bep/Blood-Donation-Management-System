@@ -102,8 +102,7 @@ pipeline {
                         exit 1
                     fi
 
-                    docker compose run --rm backend \
-                      pytest -q tests/test_security.py
+                    docker compose run --rm -e PYTHONPATH=/app backend python -m pytest -q tests/test_security.py
                 '''
             }
         }
